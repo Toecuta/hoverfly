@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -90,14 +89,21 @@ func logsToPlainText(logs []*logrus.Entry) string {
 
 func (this *LogsHandler) GetWS(w http.ResponseWriter, r *http.Request) {
 
-	var previousLogs LogsView
+	var position int
+	var previousLength int
 
 	handlers.NewWebsocket(func() ([]byte, error) {
-		currentLogs := logsToLogsView(this.Hoverfly.GetLogs(500))
+		logs := this.Hoverfly.GetLogs(500)
+		logsLength := len(logs)
 
-		if !reflect.DeepEqual(currentLogs, previousLogs) {
-			previousLogs = currentLogs
-			return json.Marshal(currentLogs)
+		position = position + logsLength - previousLength
+
+		if position != 0 {
+			position--
+			logToPrint := logs[position]
+			previousLength = logsLength
+			logsView := logsToLogsView([]*logrus.Entry{logToPrint})
+			return json.Marshal(logsView.Logs[0])
 		}
 
 		return nil, errors.New("No update needed")
